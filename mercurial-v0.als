@@ -8,15 +8,13 @@ module mercurial
 sig Changeset {
 	parents: set Changeset,
 }
-{ #parents <= 2 }
-
-// A Changeset is acyclic WRT its ancestors
-fact {
-	no cs: Changeset | cs in cs.^parents -- ^parents = ancestors (all cs transitively reachable via parents)
+fact { -- axioms about Changeset
+	all cs: Changeset | #cs.parents <= 2	-- mercurial allows up to 2 parents
+	all cs: Changeset | cs not in cs.^parents	-- can't have cyclic history
 }
 
-pred show[cs: set Changeset] {
-	#cs > 5 -- at least 6
+pred show {
+	#Changeset > 5 -- at least 6
 }
 
 run show for 10 -- up to 10

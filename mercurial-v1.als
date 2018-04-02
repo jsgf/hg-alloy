@@ -5,7 +5,7 @@ module mercurial
 sig Repo {
 	changesets: set Changeset,
 }
-{ changesets = changesets.*parents }
+--{ changesets = changesets.*parents }
 
 
 // A Changeset has a set of parents, up to 2
@@ -19,13 +19,19 @@ fact {
 	// All changesets are part of a repo
 	all c: Changeset | c in Repo.changesets
 	// All changesets reachable from a repo are part of that repo
-	all r: Repo | r.changesets.*parents in r.changesets
+	--all r: Repo | r.changesets.*parents in r.changesets
 }
 
 // A Changeset is acyclic WRT its ancestors
 fact {
 	no cs: Changeset | cs in cs.^parents -- ^parents = ancestors (all cs transitively reachable via parents)
 }
+
+assert allConnected {
+	all r: Repo | r.changesets = r.changesets.*parents
+}
+
+check allConnected for 5
 
 pred show {
 }

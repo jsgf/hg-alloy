@@ -24,15 +24,10 @@ abstract sig Node {
 }
 {
 	#parents <= 2 -- mercurial bounds parents to 2
-	all n: this | n not in n.^@parents -- axiomatically acyclic for now
 }
-let children = ~parents
 
 fun ancestors [n: Node]: set Node {
 	n.^parents
-}
-fun decendents [n: Node]: set Node {
-	n.^children
 }
 
 sig Manifest extends Node {}
@@ -59,7 +54,8 @@ pred commit [r, r': Repo, cs: Changeset] {
 	-- preconditions
 	cs not in r.changesets -- new cs not already in repo
 	cs.parents in r.changesets -- cs's parents are in repo
-	cs.manifest in ((Manifest - cs::ancestors[].manifest) + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
+
+	cs.manifest in (Manifest - cs::ancestors[].manifest + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
 	cs.manifest.parents = cs.parents.manifest -- manifest has cs's parents manifests
 
 	r'.changesets = r.changesets + cs -- add cs to r'
@@ -78,7 +74,7 @@ pred show {
 	#Manifest > 2
 	some m: Manifest | #m.parents > 1
 }
-run show  for 8 but 14 Node
+run show  for 4 but 8 Node
 
 assert nodeAcyclic {
 	all n: Node | n not in n.^parents -- check nodes are acyclic

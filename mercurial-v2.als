@@ -19,20 +19,21 @@ sig Changeset {
 }
 
 // Initial repo is empty
-pred Repo::init[] {
-	no this.changesets
+pred init[r: Repo] {
+	no r.changesets
 }
 
 // commit adds a new changeset to a repo
 pred commit [r, r': Repo, cs: Changeset] {
 	cs not in r.changesets -- cs not already in repo
 	cs.parents in r.changesets -- cs's parents are in repo
+
 	r'.changesets = r.changesets + cs -- add cs to r'
 }
 
 // All sequences of repos constructable by committing new changesets
-fact Commits {
-	first[]::init[] -- start empty
+fact commits {
+	init[first[]] -- start empty
 	-- for all repos except the last one, the difference between it and the next is the commit of a Changeset
 	all r: Repo - last[] | let r' = r.next |
 		one cs: Changeset | commit[r, r', cs]
@@ -44,9 +45,9 @@ run show  for 5
 assert csAcyclic {
 	all cs: Changeset | cs not in cs.^parents -- check cs are acyclic
 }
-check csAcyclic for 8
+check csAcyclic for 5
 
 assert csConnected {
 	all r: Repo | r.changesets = r.changesets.*parents
 }
-check csConnected for 7
+check csConnected for 5
