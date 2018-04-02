@@ -71,8 +71,7 @@ fact Commits {
 
 pred show {
 	-- make things a bit interesting
-	#Manifest > 2
-	some m: Manifest | #m.parents > 1
+	some m: Manifest | #m.parents > 1 -- at least one manifest has more than one parent
 }
 run show  for 4 but 8 Node
 
@@ -84,14 +83,14 @@ check nodeAcyclic for 8
 assert csConnected {
 	all r: Repo | r.changesets = r.changesets.*parents
 }
-check csConnected for 7
+check csConnected for 8 but 12 Node
 
 assert manifestParents {
 	all cs: Changeset | cs.manifest.parents = cs.parents.manifest
 }
-check manifestParents for 6 but 10 Node
+check manifestParents for 8 but 12 Node
 
 assert noManifestReuse {
 	all cs: Changeset | cs.manifest in (Manifest - (cs::ancestors[].manifest) + cs.parents.manifest)
 }
-check noManifestReuse for 8 but 14 Node
+check noManifestReuse for 8 but 12 Node

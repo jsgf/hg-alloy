@@ -30,10 +30,9 @@ fact {
 assert allConnected {
 	all r: Repo | r.changesets = r.changesets.*parents
 }
-
 check allConnected for 5
 
 pred show {
 }
 
-run show for exactly 5 Repo, 20 Changeset
+run show for exactly 3 Repo, 5 Changeset

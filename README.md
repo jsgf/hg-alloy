@@ -1,18 +1,55 @@
-# Modelling Mercurial in Alloy
+# Modelling Mercurial with Alloy
 
 ## Introduction
 
-[Alloy](http://alloytools.org/) is a declarative language for modeling data structures, using relations between sets.
-Operations and invariants are all expressed via constraints on the structure.
+This is a chronicle of my voyage to build a model of Mercurial in Alloy. The goal is to build
+a fairly rigorous model which we can experiment on, and likely find a few surprising things.
+Later, we can use it as the basis for evaluating changes to the model.
 
-In this writeup, I'm going to use it to model Mercurial's core data structures. I'm hoping that
-by approaching it in a fairly rigourous way I can shine light into the subtle corners and
-come up with interesting questions to ask.
+[Alloy](http://alloytools.org/) is a declarative language for modeling data structures, using 
+relations between sets. Operations and invariants are all expressed via constraints on the 
+structure; Alloy allows these constraints to be expressed very concisely.
+
+Alloy encourages a very iterative experimental approach. Here, I'm primarily interested in
+constructing a model and looking at its output (ie, things that it generates that meet all the
+stated constraints) to see if they meet my expectation. If there's something odd in there, it
+either means that there's something missing from the model, or perhaps it means that there's are
+implications of the model which I didn't anticipate.
 
 This is not intended to be an Alloy tutorial, but I'm learning it myself. This is my writeup
-as I progress, so it should be fairly easy to follow along. You can download Alloy from
-[here](https://github.com/AlloyTools/org.alloytools.alloy/releases) and load up the sources to
-try them out.
+of my learning process, so it should be fairly easy to follow along. You can download Alloy from
+[here](https://github.com/AlloyTools/org.alloytools.alloy/releases) and load up the
+[sources](https://github.com/jsgf/hg-alloy) to try them out.
+
+### Sidenote - Understanding the Diagrams
+
+I'm using Alloy's built-in tool for visualizing graphs. It doesn't do a great job of laying things out,
+but it isn't too bad at this scale (it also supports exporting to dot for somewhat better layout).
+
+Here's a more complex example which has a couple of everything:
+
+![Example](images/example.png)
+
+We'll get into more detail about what all these mean in detail later on, but broadly:
+
+- `RepoN` is represents an instance of a repository, and is represented by a green parallelogram. Unlike
+   everything else, the N is generally meaningful, as Repos have an ordered relationship - increasing N
+   represents evolution over time.
+- `ChangesetN` represents an instance of a changeset, and is a yellow ellipse
+- `ManifestN` is a manifest, represented by a reddish rhombus
+- `FileN` is a specific version of a file, in a blue box
+
+(Not shown here are Paths, which every file has. They're omitted here for clarity, but can be shown
+with a toggle in the style. Also Repo may not explicitly appear because the display is "projected over Repo" - this
+allows diagrams to show progressive change as Repos change.)
+
+Edges between these show how they're related:
+- `changesets` shows the relation between a repo and all the changesets it contains. Note that a single changeset
+   can be (and often is) part of multiple repos
+- `parents` shows an arrow from a child to its parent(s). 
+- `manifest` shows the relation between a changeset and its manifest. Every changeset has a manifest, but manifests
+  can be shared between changesets
+- `files` shows all the files that are part of a manifest
 
 ## Getting Started - The simplest thing that can possibly work
 
@@ -122,18 +159,21 @@ is part of that Repo.
 assert allConnected {
     -- for all Repos, the repo's set of changesets should equal the set of reachable
     -- changesets. `*` is like `^` for transitive closure, but it includes the starting points.
-	all r: Repo | r.changesets = r.changesets.*parents
+    all r: Repo | r.changesets = r.changesets.*parents
 }
 
 check allConnected for 5
 ```
-This defines an assertion which should always be true, and checks its true for all constructions up to 5 elements large. This quickly shows the problem:
+This defines an assertion of an invariant, and checks its true for all constructions up to 5 elements large. This quickly shows the problem:
 
 ![problem](images/v1-2.png)
 
-Repo1 is connected to Changesets[0..4], but only Changeset0 is in Repo1's changeset. For now, we can add that as another fact:
+Changesets{0,1} have a parent/child relationship, and Repo0 is connected to Changesets{0,1}, But Repo1 only has Changeset1, not 0.
+
+Let's fix that for now by just making it an axiom:
 ```
 fact {
+    -- for every existing Repo, the changesets set must be the same as a all the changesets reachable from that set
     all r: Repo | r.changesets = r.changesets.*parents
 }
 ```
@@ -141,7 +181,9 @@ fact {
 ## Making Changes
 
 Now that we have multiple Repos, we can use them to represent changes - ie, before and after states.
-This means that there's an ordering relationship between Repos.
+We can build up a Repo's state inductively: starting from an initial empty Repo, we can keep
+adding new Changesets via commit operations. This implies that Repos have an ordering relationship,
+which we can use Alloy's built-in `util/ordering` module to implement.
 
 ```
 module mercurial
@@ -189,9 +231,15 @@ check csAcyclic for 5
 ```
 
 Now that we're constructing the Repo state incrementally via `commit`, we should be getting
-the properties we want by construction rather than making them axioms - so we make them assertions
-instead. Unfortunately they fail - we need to add some more preconditions to `commit`.
+the properties we want by construction rather than making them axioms...
 
+Um, no:
+
+![Loop / not new](images/v2-0.png)
+
+We're still getting loops, and we're not adding new changesets on each `commit`.
+
+We need to add some more preconditions to `commit`.
 Firstly, we need to ensure that the `Changeset` we're adding to the Repo isn't already part of the
 Repo. And secondly, its parents must be part of the Repo:
 
@@ -204,17 +252,20 @@ pred commit [r, r': Repo, cs: Changeset] {
 }
 ```
 
+(Note that the lines in the predicate are treated as logically-ANDed together. The final line isn't an
+assignment or imperative - it's just a constraint on the relationship between `r` and `r'`.)
+
 Unfortunately, these preconditions are not quite enough - we still need to constrain all Changesets to
 being part of a repo:
+
+![Floating](images/v2-1.png)
+
+That can be a `fact`.
 ```
 fact {
     all cs: Changeset | cs in Repo.changesets
 }
 ```
-
-(Note that `pred commit` is not changing anything, or assigning anything to `r'`. Rather, it's setting 
-constraints on the relationship between `r` and `r'` so when Alloy constructs structures that meet the 
-constraints, they have the right properties.)
 
 ## Generalizing History
 
@@ -256,9 +307,12 @@ completely unconstrained, so let's see how that works out:
 ![Manifestly messy](images/v3-0.png)
 
 Ew, the Manifests have parents, but they're completely uncoupled from their corresponding Changsets.
+(Not to mention Manifest0's self parenthood, and Manifest1 and 2's mutual parenthood.)
+
 Let's add some more preconditions for `commit`:
 
 ```
+-- Helper function to return the set of ancestors for a particular Node.
 fun ancestors [n: Node]: set Node {
     n.^parents
 }
@@ -271,7 +325,7 @@ pred commit [r, r': Repo, cs: Changeset] {
     // Manifest preconditions
     -- Manifest's parents must be changeset's parent's manifests 
     cs.manifest.parents = cs.parents.manifest
-    -- Manifest must either be new, or from the parents
+    -- Manifest must either be new (ie, not exist in ancestors) except for the parents
     cs.manifest in (Manifest - ancestors[cs].manifest + cs.parents.manifest)
 
     r'.changesets = r.changesets + cs
@@ -290,13 +344,29 @@ file change. This means that the Manifest is unchanged across Changesets. If thi
 means that two changesets can share the same parent, and a changeset that merges them would also have the
 same Manifest.  OK, I guess?
 
-Let's assert that all Nodes are acyclic with respect to their parents.
+Now that we're incrementally constructing the Repo state, and each commit has a set of local constraints
+for Changesets as they're being added, we can check some assertions for global invariants that we expect
+to hold over multiple commits:
 
 ```
+-- All Nodes are acyclic with respect to their parents (covers Changesets, Manifests, Files)
 assert nodeAcyclic {
     all n: Node | n not in n.^parents
 }
-check nodeAcyclic for 8
+check nodeAcyclic for 8 -- up to 8 of any top level thing
+
+-- Manifest's parents are their Changeset's parents' Manifests
+assert manifestParents {
+	all cs: Changeset | cs.manifest.parents = cs.parents.manifest
+}
+check manifestParents for 8 but 12 Node -- allow more Nodes because each cs uses at least 2
+
+-- Manifests aren't suddenly reused with respect to their history
+-- (Disjoint history is allowed to reuse manifests?)
+assert noManifestReuse {
+	all cs: Changeset | cs.manifest in (Manifest - (cs::ancestors[].manifest) + cs.parents.manifest)
+}
+check noManifestReuse for 8 but 12 Node
 ```
 
 Yep, all good.

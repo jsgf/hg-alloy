@@ -40,7 +40,7 @@ fact commits {
 }
 
 pred show {}
-run show  for 5
+run show  for 4
 
 assert csAcyclic {
 	all cs: Changeset | cs not in cs.^parents -- check cs are acyclic

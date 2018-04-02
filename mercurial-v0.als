@@ -14,7 +14,7 @@ fact { -- axioms about Changeset
 }
 
 pred show {
-	#Changeset > 5 -- at least 6
+	#Changeset >= 5 -- at least 5
 }
 
-run show for 10 -- up to 10
+run show for 10 -- up to 10 Changesets
