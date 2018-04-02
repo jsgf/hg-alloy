@@ -70,7 +70,7 @@ sig Changeset {
     parents: set Changeset -- changeset can have 0 or more parents
 }
 
--- axioms about Changesets
+-- facts (axioms) about Changesets
 fact {
     all cs: Changeset | #cs.parents <= 2	    -- mercurial allows up to 2 parents
 }
@@ -95,10 +95,10 @@ Uh, but this isn't what we expect - Mercurial doesn't allow cycles in history, s
 
 The problem is that Alloy assumes nothing about our model, so any constraint we want we need to specify. Furthermore, this model is very simple, and just defines a single state of the Repo without any way to modify it - so we can't rely on construction to get the properties we want.
 
-To fix this, we need to extend the axioms to say that its acyclic:
+To fix this, we need to extend the facts to say that its acyclic:
 ```
 fact {
-    all cs: Changeset | #cs.parents <= 2	    -- mercurial allows up to 2 parents
+    all cs: Changeset | #cs.parents <= 2        -- mercurial allows up to 2 parents
     all cs: Changeset | cs not in cs.^parents   -- non-cyclic structure
 }
 ```
@@ -168,9 +168,9 @@ This defines an assertion of an invariant, and checks its true for all construct
 
 ![problem](images/v1-2.png)
 
-Changesets{0,1} have a parent/child relationship, and Repo0 is connected to Changesets{0,1}, But Repo1 only has Changeset1, not 0.
+Changesets 0 and 1 have a parent/child relationship. Repo 0 owns them, but Repo 1 only has Changeset 1, not 0.
 
-Let's fix that for now by just making it an axiom:
+Let's fix that for now by just making it a fact:
 ```
 fact {
     -- for every existing Repo, the changesets set must be the same as a all the changesets reachable from that set
@@ -231,7 +231,7 @@ check csAcyclic for 5
 ```
 
 Now that we're constructing the Repo state incrementally via `commit`, we should be getting
-the properties we want by construction rather than making them axioms...
+the properties we want by construction rather than making them `fact`s...
 
 Um, no:
 
@@ -266,6 +266,7 @@ fact {
     all cs: Changeset | cs in Repo.changesets
 }
 ```
+![OK](images/v2-2.png)
 
 ## Generalizing History
 
@@ -306,7 +307,7 @@ completely unconstrained, so let's see how that works out:
 
 ![Manifestly messy](images/v3-0.png)
 
-Ew, the Manifests have parents, but they're completely uncoupled from their corresponding Changsets.
+Ew, the Manifests have parents, but they're completely uncoupled from their corresponding Changesets.
 (Not to mention Manifest0's self parenthood, and Manifest1 and 2's mutual parenthood.)
 
 Let's add some more preconditions for `commit`:
@@ -323,7 +324,7 @@ pred commit [r, r': Repo, cs: Changeset] {
     cs.parents in r.changesets
 
     // Manifest preconditions
-    -- Manifest's parents must be changeset's parent's manifests 
+    -- Manifest's parents must be cs's parent's manifests 
     cs.manifest.parents = cs.parents.manifest
     -- Manifest must either be new (ie, not exist in ancestors) except for the parents
     cs.manifest in (Manifest - ancestors[cs].manifest + cs.parents.manifest)
@@ -373,4 +374,4 @@ Yep, all good.
 
 ## Files
 
-TBD
+TBD - [see mercurial-v4.als](mercurial-v4.als)
