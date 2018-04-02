@@ -79,7 +79,9 @@ pred commit [r, r': Repo, cs: Changeset] {
 	all f: cs.manifest.files |
 		some f.parents => some fp: f.parents | fp != f
 	-- Can't resurrect a deleted file - so file must be either new (WRT ancestors) or in a parent
-	all f: cs.manifest.files | f in ((File - ancestors[cs.manifest].files) + cs.manifest.parents.files)
+	-- XXX not true - you can create a new file and give it a new history which is identical to a previous file,
+	-- either with the same path or a new one
+	-- all f: cs.manifest.files | f in ((File - ancestors[cs.manifest].files) + cs.manifest.parents.files)
 
 	r'.changesets = r.changesets + cs -- add cs to r'
 }
