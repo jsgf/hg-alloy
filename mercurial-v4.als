@@ -98,6 +98,7 @@ pred show {
 	-- make things a bit interesting
 	some f: File | #f.parents > 1 -- at least one file has a merge (implies manifest, changeset merge)
 	some m: Manifest | #m.files > 1 -- at least one manifest has more than one file
+	-- some m: Manifest | some f: m.files | f in m.parents.files -- some manifest has some unchanged file
 }
 run show  for 8 but 24 Node
 
