@@ -12,20 +12,13 @@ sig Repo {
 abstract sig Node {
 	parents: set Node,
 }
-{
-	#parents <= 2 -- mercurial bounds parents to 2
-	all n: this | n not in n.^@parents -- axiomatically acyclic for now
-}
-let children = ~parents
-
+{ #parents <= 2 } -- mercurial bounds parents to 2
 
 fun ancestors [n: Node]: set Node {
 	n.^parents
 }
-fun decendents [n: Node]: set Node {
-	n.^children
-}
 
+-- Represents a distinct path into the manifest
 sig Path {}
 { this in Manifest.files.path }
 
@@ -35,13 +28,14 @@ sig Manifest extends Node {
 {
 	parents in Manifest -- all Manifest parents are Manifest
 	this in Changeset.manifest -- All Manifests are referenced by Changesets (may be shared)
-	one f: files, p: files.path | f.path = p -- filenames are unique
+	all p: files.path | one f: files | f.path = p -- filenames are unique
 }
 
 fact UniqueManifest {
 	one fs: Manifest.files, ps: Manifest.parents, m: Manifest | m.files = fs and m.parents = ps
 }
 
+-- A specific point in a file's history
 sig File extends Node {
 	path: Path
 }
@@ -79,7 +73,7 @@ pred commit [r, r': Repo, cs: Changeset] {
 
 	-- files
 	-- a file's parents must be: 1. in the parent manifest, 2. have the same path
-	all f: cs.manifest.files, fp: File |
+	all f: cs.manifest.files | all fp: File |
 		fp in f.parents iff (fp in cs.manifest.parents.files and fp.path = f.path)
 	-- At least one of the parents has to be different from f
 	all f: cs.manifest.files |
@@ -101,7 +95,7 @@ fact Commits {
 pred show {
 	-- make things a bit interesting
 	some f: File | #f.parents > 1 -- at least one file has a merge (implies manifest, changeset merge)
-	-- some m: Manifest | #m.files > 1 -- at least one manifest has more than one file XXX FIXME not consistent
+	some m: Manifest | #m.files > 1 -- at least one manifest has more than one file
 }
 run show  for 8 but 24 Node
 
@@ -115,12 +109,26 @@ assert csConnected {
 }
 check csConnected for 7
 
+-- manifest parents are the cs's parent manifests
 assert manifestParents {
 	all cs: Changeset | cs.manifest.parents = cs.parents.manifest
 }
 check manifestParents for 6 but 10 Node
 
+-- manifest new WRT the ancestors, or the parent's manifest
 assert noManifestReuse {
 	all cs: Changeset | cs.manifest in (Manifest - (cs::ancestors[].manifest) + cs.parents.manifest)
 }
 check noManifestReuse for 8 but 14 Node
+
+-- File's parents must be in containing manifest's parents
+assert fileParent {
+	all m: Manifest | all f: m.files | f.parents in m.parents.files
+}
+check fileParent for 8 but 14 Node
+
+-- File's parents must have same path
+assert fileParentPath {
+	all f: File | all fp: f.parents | f.path = fp.path
+}
+check fileParentPath for 8 but 14 Node
