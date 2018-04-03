@@ -493,3 +493,20 @@ fact {
 With this constraint in place, we get plausible-looking output like:
 
 ![Plausible](images/v4-plausible.png)
+
+# Conclusion (for now)
+
+So now we have:
+- a model for the traditional version Mercurial's core data structure (flat manifests)
+- a commit operation, along with a set of concise preconditions
+- assertions for invariants that follow from the commit operation and its preconditions
+
+This is a pretty good start, and has already been a useful exercise for my understanding of Mercurial.
+
+But there's more to do - we're missing:
+- any model of the working directory, or editing files
+- how the working directory gets turned into a commit while meeting the preconditions
+- models for operations like rebase, trivial (push) rebase, etc
+  - though `commit` is general enough to express branching and merging
+
+But those are for next time.
