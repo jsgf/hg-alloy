@@ -23,10 +23,15 @@ pred init[r: Repo] {
 	no r.changesets
 }
 
+pred changesetPrecond[r: Repo, cs: Changeset] {
+	cs not in r.changesets -- new cs not already in repo
+	cs.parents in r.changesets -- cs's parents are in repo
+}
+
 // commit adds a new changeset to a repo
 pred commit [r, r': Repo, cs: Changeset] {
-	cs not in r.changesets -- cs not already in repo
-	cs.parents in r.changesets -- cs's parents are in repo
+	-- preconditions
+	changesetPrecond[r, cs]
 
 	r'.changesets = r.changesets + cs -- add cs to r'
 }

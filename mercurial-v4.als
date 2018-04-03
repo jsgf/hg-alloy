@@ -23,16 +23,21 @@ sig Path {}
 { this in Manifest.files.path }
 
 sig Manifest extends Node {
-	files: set File,
+	files: some File,
 }
 {
 	parents in Manifest -- all Manifest parents are Manifest
 	this in Changeset.manifest -- All Manifests are referenced by Changesets (may be shared)
-	all p: files.path | one f: files | f.path = p -- filenames are unique
+	-- all f, f': files | f.path = f'.path => f = f' -- filenames are unique
+	
 }
 
-fact UniqueManifest {
-	one fs: Manifest.files, ps: Manifest.parents, m: Manifest | m.files = fs and m.parents = ps
+fact {
+	-- For all manifests, if two files have the same path, then they're the same file
+	all m: Manifest | all f, f': m.files | f.path = f'.path => f = f'
+
+	-- If two manifests have the same parents and files, then they're the same manifest
+	-- all m, m': Manifest | m.parents = m'.parents and m.files = m'.files => m = m'
 }
 
 -- A specific point in a file's history
@@ -57,31 +62,31 @@ pred init[r: Repo] {
 	no r.changesets
 }
 
-// commit adds a new changeset to a repo
-pred commit [r, r': Repo, cs: Changeset] {
-	-- preconditions
-
-	-- changeset
+pred changesetPrecond[r: Repo, cs: Changeset] {
 	cs not in r.changesets -- new cs not already in repo
 	cs.parents in r.changesets -- cs's parents are in repo
+}
 
-	-- manifest
+pred manifestPrecond[cs: Changeset] {
 	cs.manifest in ((Manifest - ancestors[cs].manifest) + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
 	cs.manifest.parents = cs.parents.manifest -- manifest has cs's parents manifests
-	-- if we have parents, at least one of them has to have a different file set
-	some cs.manifest.parents => some mp: cs.manifest.parents | mp.files != cs.manifest.files
+}
 
-	-- files
+pred filesPrecond[cs: Changeset] {
 	-- a file's parents must be: 1. in the parent manifest, 2. have the same path
 	all f: cs.manifest.files | all fp: File |
 		fp in f.parents iff (fp in cs.manifest.parents.files and fp.path = f.path)
 	-- At least one of the parents has to be different from f
 	all f: cs.manifest.files |
 		some f.parents => some fp: f.parents | fp != f
-	-- Can't resurrect a deleted file - so file must be either new (WRT ancestors) or in a parent
-	-- XXX not true - you can create a new file and give it a new history which is identical to a previous file,
-	-- either with the same path or a new one
-	-- all f: cs.manifest.files | f in ((File - ancestors[cs.manifest].files) + cs.manifest.parents.files)
+}
+
+// commit adds a new changeset to a repo
+pred commit [r, r': Repo, cs: Changeset] {
+	-- preconditions
+	changesetPrecond[r, cs]
+	manifestPrecond[cs]
+	filesPrecond[cs]
 
 	r'.changesets = r.changesets + cs -- add cs to r'
 }

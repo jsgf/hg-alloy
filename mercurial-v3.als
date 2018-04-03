@@ -49,14 +49,21 @@ pred init[r: Repo] {
 	no r.changesets
 }
 
+pred changesetPrecond[r: Repo, cs: Changeset] {
+	cs not in r.changesets -- new cs not already in repo
+	cs.parents in r.changesets -- cs's parents are in repo
+}
+
+pred manifestPrecond[cs: Changeset] {
+	cs.manifest in ((Manifest - ancestors[cs].manifest) + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
+	cs.manifest.parents = cs.parents.manifest -- manifest has cs's parents manifests
+}
+
 // commit adds a new changeset to a repo
 pred commit [r, r': Repo, cs: Changeset] {
 	-- preconditions
-	cs not in r.changesets -- new cs not already in repo
-	cs.parents in r.changesets -- cs's parents are in repo
-
-	cs.manifest in (Manifest - cs::ancestors[].manifest + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
-	cs.manifest.parents = cs.parents.manifest -- manifest has cs's parents manifests
+	changesetPrecond[r, cs]
+	manifestPrecond[cs]
 
 	r'.changesets = r.changesets + cs -- add cs to r'
 }

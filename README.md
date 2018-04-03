@@ -244,9 +244,13 @@ Firstly, we need to ensure that the `Changeset` we're adding to the Repo isn't a
 Repo. And secondly, its parents must be part of the Repo:
 
 ```
+pred changesetPrecond[r: Repo, cs: Changeset] {
+	cs not in r.changesets -- new cs not already in repo
+	cs.parents in r.changesets -- cs's parents are in repo
+}
+
 pred commit [r, r': Repo, cs: Changeset] {
-    cs not in r.changesets      -- new cs not part of r
-    cs.parents in r.changesets  -- but its parents (if any) must be part of r
+    changesetPrecond[r, cs]
 
     r'.changeset = r.changeset + cs
 }
@@ -318,16 +322,16 @@ fun ancestors [n: Node]: set Node {
     n.^parents
 }
 
-pred commit [r, r': Repo, cs: Changeset] {
-    // Changeset preconditions
-    cs not in r.changesets
-    cs.parents in r.changesets
+pred manifestPrecond[cs: Changeset] {
+	cs.manifest in ((Manifest - ancestors[cs].manifest) + cs.parents.manifest) -- manifest can't be reused from ancestors except parents
+	cs.manifest.parents = cs.parents.manifest -- manifest has cs's parents manifests
+	-- if we have parents, at least one of them has to have a different file set
+	some cs.manifest.parents => some mp: cs.manifest.parents | mp.files != cs.manifest.files
+}
 
-    // Manifest preconditions
-    -- Manifest's parents must be cs's parent's manifests 
-    cs.manifest.parents = cs.parents.manifest
-    -- Manifest must either be new (ie, not exist in ancestors) except for the parents
-    cs.manifest in (Manifest - ancestors[cs].manifest + cs.parents.manifest)
+pred commit [r, r': Repo, cs: Changeset] {
+    changesetPrecond[r, cs]
+    manifestPrecond[cs]
 
     r'.changesets = r.changesets + cs
 }
@@ -374,4 +378,118 @@ Yep, all good.
 
 ## Files
 
-TBD - [see mercurial-v4.als](mercurial-v4.als)
+Extending the model to include files is relatively straightforward - they're just another extension of `Node`:
+
+```
+module mercurial
+open util/ordering [Repo]
+
+abstract sig Node {
+    parents: set Node
+}
+{ #parents <= 2 }
+
+sig Changeset extends Node {
+    manifest: Manifest
+}
+{
+    parents in Changeset        -- Changeset parents can only be other Changeset
+    this in Repo.changesets     -- all Changesets part of a Repo
+}
+
+sig Manifest extends Node {
+    files: set File,            -- set of files we've got
+}
+{
+    parents in Manifest         -- Manifest parents are only other parents
+    this in Changeset.manifest  -- all Manifests are referenced by a Changeset
+}
+
+-- File extends Node, and has a Path
+sig File extends Node {
+    path: Path
+}
+{
+    parents in File             -- file parents are files
+    this in Manifest.files      -- all files referenced by a manifest
+}
+
+sig Path {} -- atom representing a distinct path in a Manifest
+
+fun ancestors [n: Node]: set Node {
+    n.^parents
+}
+
+pred commit [r, r': Repo, cs: Changeset] {
+    // Changeset preconditions
+    cs not in r.changesets
+    cs.parents in r.changesets
+
+    // Manifest preconditions
+    -- Manifest's parents must be cs's parent's manifests 
+    cs.manifest.parents = cs.parents.manifest
+    -- Manifest must either be new (ie, not exist in ancestors) except for the parents
+    cs.manifest in (Manifest - ancestors[cs].manifest + cs.parents.manifest)
+
+    r'.changesets = r.changesets + cs
+}
+```
+
+Let's see what happens with that:
+
+![Names](images/v4-0.png)
+
+Well, there's a couple of problems here:
+- The Manifests have multiple files with the same name
+- The file histories are nonsense
+
+The multiple files with duplicate names are fairly easy to fix up:
+```
+fact {
+    -- For all manifests, if two files have the same path, then they're the same file
+    all m: Manifest | all f, f': m.files | f.path = f'.path => f = f'
+}
+```
+
+But we need yet more constraints on `commit` to get the histories right. Firstly, file histories are all
+per `Path`, so the parent of a file must have the same path. It also has to be in a parent's Manifest.
+Also for it to be a "history", at least one of the parents has to be a different file:
+
+```
+pred filesPrecond[cs: Changeset] {
+	-- a file's parents must be: 1. in the parent manifest, 2. have the same path
+	all f: cs.manifest.files | all fp: File |
+		fp in f.parents iff (fp in cs.manifest.parents.files and fp.path = f.path)
+	-- At least one of the parents has to be different from f
+	all f: cs.manifest.files |
+		some f.parents => some fp: f.parents | fp != f
+}
+
+// commit adds a new changeset to a repo
+pred commit [r, r': Repo, cs: Changeset] {
+	-- preconditions
+	changesetPrecond[r, cs]
+	manifestPrecond[cs]
+	filesPrecond[cs]
+
+	r'.changesets = r.changesets + cs -- add cs to r'
+}
+```
+
+This looks better, but there's still an issue:
+
+![Duplicate Manifests](images/v4-1.png)
+
+We have two manifests with the same content and the same parents. In Mercurial these would be the same object,
+so we can make the same constraint here:
+
+```
+fact {
+    -- If two Manifests have the same parents and files, then they're the same manifest
+    all m, m': Manifest | m.files = m'.files and m.parents = m'.parents => m = m'
+}
+```
+
+With this constraint in place, we get plausible-looking output like:
+
+![Plausible](images/v4-plausible.png)
