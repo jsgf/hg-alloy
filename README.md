@@ -274,8 +274,8 @@ fact {
 
 ## Generalizing History
 
-Mercurial uses a common structure for all parts of a repo with history - ie, things with parents such as
-Changesets, Manifests and Files - these are all forms of a Node.
+Mercurial uses a common structure for all parts of a Repo with history (ie, things with parents)
+are all Nodes - Changesets, Manifests and Files are all types of Node.
 
 We can model this in Alloy:
 
@@ -381,22 +381,6 @@ Yep, all good.
 Extending the model to include files is relatively straightforward - they're just another extension of `Node`:
 
 ```
-module mercurial
-open util/ordering [Repo]
-
-abstract sig Node {
-    parents: set Node
-}
-{ #parents <= 2 }
-
-sig Changeset extends Node {
-    manifest: Manifest
-}
-{
-    parents in Changeset        -- Changeset parents can only be other Changeset
-    this in Repo.changesets     -- all Changesets part of a Repo
-}
-
 sig Manifest extends Node {
     files: set File,            -- set of files we've got
 }
@@ -415,24 +399,6 @@ sig File extends Node {
 }
 
 sig Path {} -- atom representing a distinct path in a Manifest
-
-fun ancestors [n: Node]: set Node {
-    n.^parents
-}
-
-pred commit [r, r': Repo, cs: Changeset] {
-    // Changeset preconditions
-    cs not in r.changesets
-    cs.parents in r.changesets
-
-    // Manifest preconditions
-    -- Manifest's parents must be cs's parent's manifests 
-    cs.manifest.parents = cs.parents.manifest
-    -- Manifest must either be new (ie, not exist in ancestors) except for the parents
-    cs.manifest in (Manifest - ancestors[cs].manifest + cs.parents.manifest)
-
-    r'.changesets = r.changesets + cs
-}
 ```
 
 Let's see what happens with that:
