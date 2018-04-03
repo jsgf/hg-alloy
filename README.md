@@ -95,7 +95,7 @@ Uh, but this isn't what we expect - Mercurial doesn't allow cycles in history, s
 
 The problem is that Alloy assumes nothing about our model, so any constraint we want we need to specify. Furthermore, this model is very simple, and just defines a single state of the Repo without any way to modify it - so we can't rely on construction to get the properties we want.
 
-To fix this, we need to extend the facts to say that its acyclic:
+To fix this, we need to extend the facts to explicitly say that its acyclic:
 ```
 fact {
     all cs: Changeset | #cs.parents <= 2        -- mercurial allows up to 2 parents

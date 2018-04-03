@@ -28,16 +28,6 @@ sig Manifest extends Node {
 {
 	parents in Manifest -- all Manifest parents are Manifest
 	this in Changeset.manifest -- All Manifests are referenced by Changesets (may be shared)
-	-- all f, f': files | f.path = f'.path => f = f' -- filenames are unique
-	
-}
-
-fact {
-	-- For all manifests, if two files have the same path, then they're the same file
-	all m: Manifest | all f, f': m.files | f.path = f'.path => f = f'
-
-	-- If two manifests have the same parents and files, then they're the same manifest
-	-- all m, m': Manifest | m.parents = m'.parents and m.files = m'.files => m = m'
 }
 
 -- A specific point in a file's history
@@ -55,6 +45,17 @@ sig Changeset extends Node {
 {
 	parents in Changeset -- all Changeset parents are Changeset
 	this in Repo.changesets -- all Changesets are part ot at least one Repo (may be shared by Repos)
+}
+
+fact identities {
+	-- If two changesets have the same parents and the same manifest, they're the same changeset
+	all cs, cs': Changeset | cs.parents = cs'.parents and cs.manifest = cs'.manifest => cs = cs'
+
+	-- For all manifests, if two files have the same path, then they're the same file
+	all m: Manifest | all f, f': m.files | f.path = f'.path => f = f'
+
+	-- If two manifests have the same parents and files, then they're the same manifest
+	all m, m': Manifest | m.parents = m'.parents and m.files = m'.files => m = m'
 }
 
 // Initial repo is empty

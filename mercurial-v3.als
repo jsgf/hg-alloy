@@ -5,11 +5,6 @@
 // - not every changeset necessarily introduces a new manifest
 // - manifest ancestor graph follows the changeset graph
 //   - manifest parent set is the same as cs parent's manifests
-//
-// Questions:
-// - OK to reuse old manifests?
-// - OK to leave Manifest unchanged?
-// - Do all merge cs have to have a merge manifest?
 module mercurial
 
 open util/ordering [Repo] -- there's a (time) ordering between Repo instances
@@ -44,13 +39,20 @@ sig Changeset extends Node {
 	this in Repo.changesets -- all Changesets are part ot at least one Repo (may be shared by Repos)
 }
 
+fact identities {
+	-- If two changesets have the same parents and the same manifest, they're the same changeset
+	all cs, cs': Changeset | cs.parents = cs'.parents and cs.manifest = cs'.manifest => cs = cs'
+}
+
 // Initial repo is empty
 pred init[r: Repo] {
 	no r.changesets
 }
 
 pred changesetPrecond[r: Repo, cs: Changeset] {
-	cs not in r.changesets -- new cs not already in repo
+    -- (we don't need to assert that cs isn't in the repo - committing a cs that already
+	-- exists isn't a problem, and we've got an identity for changesets to make sure that
+	-- we're de-duping identical changesets)
 	cs.parents in r.changesets -- cs's parents are in repo
 }
 
