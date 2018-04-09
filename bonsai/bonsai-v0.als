@@ -63,6 +63,14 @@ pred bonsaiDiff[b: BonsaiCS, m: one Manifest, p: set Manifest ] {
 	b.parents = p
 }
 
+-- Apply a BonsaiCS to its parents to reconstruct the manifest
+pred bonsaiApply[m: Manifest, b: BonsaiCS, parents: set Manifest] {
+	-- new manifest is union of all the parents minus all the modified paths,
+	-- with new changes applied
+	let modded = b.del + paths[b.add] + paths[b.mod] |
+		m.files = ((paths[parents.files] - modded) <: parents.files) + b.add + b.mod
+}
+
 fact traceDiff {
 	all b: BonsaiCS |
 		some m: Manifest | let p = Manifest - m | bonsaiDiff[b, m, p]
@@ -122,3 +130,11 @@ assert manifestUnique {
 	all m: Manifest | all p, p':paths[ m.files] | p = p' => m.files[p] = m.files[p']
 }
 check manifestUnique for 5
+
+-- We can apply a BonsaiCS to its parent manifests to reconstruct the manifest
+assert applyInvert {
+	all b: BonsaiCS |
+		let m = { m: Manifest | bonsaiApply[m, b, b.parents] } |
+			 m = b.manifest
+}
+check applyInvert for 10 but exactly 1 BonsaiCS

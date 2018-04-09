@@ -3,43 +3,33 @@
 
 <view>
 
-<projection> <type name="Repo"/> </projection>
-
 <defaultnode/>
 
 <defaultedge/>
 
 <node>
+   <type name="BonsaiCS"/>
    <type name="Int"/>
-   <type name="Node"/>
    <type name="String"/>
    <type name="univ"/>
-   <type name="ordering/Ord"/>
    <type name="seq/Int"/>
-   <set name="$show_f" type="File"/>
-   <set name="changesets" type="Changeset"/>
-   <set name="First" type="ordering/Ord"/>
-   <set name="Next" type="ordering/Ord"/>
+   <set name="$allResolved_b" type="BonsaiCS"/>
 </node>
 
 <node shape="Box" color="Blue">
    <type name="File"/>
 </node>
 
-<node shape="Ellipse" color="Yellow">
-   <type name="Changeset"/>
+<node shape="Egg" color="Gray" label="Name">
+   <type name="prefixpath/Name"/>
 </node>
 
-<node shape="Parallelogram" color="Green">
-   <type name="Repo"/>
+<node shape="Hexagon" color="Gray" label="Path">
+   <type name="prefixpath/Path"/>
 </node>
 
 <node shape="Trapezoid" color="Red">
    <type name="Manifest"/>
-</node>
-
-<node visible="no" color="Gray">
-   <type name="Path"/>
 </node>
 
 </view>
